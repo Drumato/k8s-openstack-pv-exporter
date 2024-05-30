@@ -10,9 +10,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// OndemandUpdateMetricsMiddleware はリクエスト受信時にオンデマンドでメトリクスを更新する
-// 定期的にメトリクスを更新しておくアイデアもあるけど、それはOpenStack/Kubernetes APIコールが増えるので、
-// リクエストを受け取ったときのみ更新するようにしておく
+// OndemandUpdateMetricsMiddleware updates metrics on demand when a request is received.
+// Although updating metrics periodically is an idea, it would increase OpenStack/Kubernetes API calls.
+// Therefore, we update the metrics only when a request is received.
 func OndemandUpdateMetricsMiddleware(
 	logger *slog.Logger,
 	openstackClient openstack.Client,
@@ -28,7 +28,7 @@ func OndemandUpdateMetricsMiddleware(
 			}
 			logger.InfoContext(c.Request().Context(), "succeed to list persistent volumes", "length", len(pvs.Items))
 
-			// APIコールをN+1にしないため、Listで受け取って突き合わせる
+			// To avoid N+1 API calls, receive the data as a list and match it accordingly.
 			logger.InfoContext(c.Request().Context(), "trying to list openstack volumes")
 			listOpts := volumesv3.ListOpts{
 				AllTenants: false,

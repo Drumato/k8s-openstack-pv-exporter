@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientgok8s "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -20,7 +21,19 @@ type Client interface {
 	ListPersistentVolumes(ctx context.Context) (*corev1.PersistentVolumeList, error)
 }
 
+// NewDefaultClient initializes a Client that uses in-cluster config to authenticate the kube-apiserver.
+// if this fails to get in-cluster config, this tries to find the kubeconfig file and use it instead.
 func NewDefaultClient() (Client, error) {
+	config, err := rest.InClusterConfig()
+	if err == nil {
+		clientset, err := clientgok8s.NewForConfig(config)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+
+		return &DefaultClient{clientset}, nil
+	}
+
 	kubeconfigFilePath := os.Getenv(kubeconfigEnvKey)
 	if kubeconfigFilePath == "" {
 		home, err := os.UserHomeDir()
@@ -30,8 +43,9 @@ func NewDefaultClient() (Client, error) {
 		kubeconfigFilePath = filepath.Join(home, ".kube", "config")
 	}
 
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfigFilePath)
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfigFilePath)
 	if err != nil {
+		// both trying failed.
 		return nil, errors.WithStack(err)
 	}
 

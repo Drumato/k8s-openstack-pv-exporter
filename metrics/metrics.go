@@ -18,7 +18,7 @@ var (
 	})
 )
 
-// メトリクス更新時、どのようなラベルをつければいいのか更新側から分かりづらいので構造体経由で渡すようにする
+// When updating metrics, it is not clear what labels should be used, so we pass them via a struct to make it easier to understand.
 type OpenStackVolumeStatusLabels struct {
 	// Name is the name of an OpenStack volume.
 	Name string
