@@ -2,6 +2,8 @@ on:
   push:
     branches:
       - main
+    tags:
+    - 'v*.*.*'
 
 jobs:
   build-push:
@@ -38,12 +40,27 @@ jobs:
           username: drumato
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine Docker tags
+        id: docker_tag
+        run: |
+
+          echo "sha_tag=${{ github.sha }}" >> $GITHUB_ENV
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+
+            tag="${{ github.ref }}"
+            tag=${tag/refs\/tags\//}
+            echo "release_tag=$tag" >> $GITHUB_ENV
+          fi
+
+
       - name: Build and push Docker Image to ghcr.io
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ghcr.io/drumato/k8s-openstack-pv-exporter:${{ github.sha }}
+          tags: |
+            ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.sha_tag }}
+            ${{ env.release_tag && 'ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.release_tag }}' || '' }}
           platforms: linux/amd64,linux/arm64
 
