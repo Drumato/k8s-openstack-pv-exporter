@@ -12,12 +12,15 @@ import (
 	gophercloud "github.com/gophercloud/gophercloud/v2"
 	"github.com/gophercloud/gophercloud/v2/openstack"
 	openstackgo "github.com/gophercloud/gophercloud/v2/openstack"
+	volumesv3 "github.com/gophercloud/gophercloud/v2/openstack/blockstorage/v3/volumes"
 )
 
 type Client interface {
+	Config() ClientConfig
+	ListVolumes(ctx context.Context, opts volumesv3.ListOptsBuilder) ([]volumesv3.Volume, error)
 }
 
-func NewDefault(
+func NewDefaultClient(
 	ctx context.Context,
 	config ClientConfig,
 ) (Client, error) {
@@ -44,6 +47,23 @@ func NewDefault(
 
 type DefaultClient struct {
 	BlockStorageV3 *gophercloud.ServiceClient
+	config         ClientConfig
+}
+
+func (dc *DefaultClient) ListVolumes(ctx context.Context, opts volumesv3.ListOptsBuilder) ([]volumesv3.Volume, error) {
+	page, err := volumesv3.List(dc.BlockStorageV3, opts).AllPages(ctx)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	volumes, err := volumesv3.ExtractVolumes(page)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+	return volumes, nil
+}
+
+func (dc *DefaultClient) Config() ClientConfig {
+	return dc.config
 }
 
 func authenticate(

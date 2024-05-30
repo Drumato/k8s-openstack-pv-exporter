@@ -3,9 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
 
+	"github.com/Drumato/k8s-openstack-pv-exporter/kubernetes"
 	"github.com/Drumato/k8s-openstack-pv-exporter/metrics"
 	"github.com/Drumato/k8s-openstack-pv-exporter/openstack"
 	"github.com/cockroachdb/errors"
@@ -16,6 +19,7 @@ import (
 
 var (
 	exporterPort uint16
+	logLevel     string
 )
 
 func Execute(ctx context.Context) error {
@@ -26,20 +30,30 @@ func Execute(ctx context.Context) error {
 	}
 
 	c.Flags().Uint16VarP(&exporterPort, "port", "p", 8080, "the prometheus exporter port")
+	c.Flags().StringVar(&logLevel, "log-level", "info", "debug/info/warn/error")
 
 	return c.ExecuteContext(ctx)
 }
 
 func runE(c *cobra.Command, args []string) error {
+	level := determineLogLevel(logLevel)
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level}))
+	reg := metrics.InitializeMetrics()
+
 	e := echo.New()
 
-	client, err := openstack.NewDefault(c.Context(), openstack.NewConfigFromEnv())
+	openstackClient, err := openstack.NewDefaultClient(c.Context(), openstack.NewConfigFromEnv())
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
-	e.Use(metrics.OndemandUpdateMetricsMiddleware(client))
-	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	k8sClient, err := kubernetes.NewDefaultClient()
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	e.Use(metrics.OndemandUpdateMetricsMiddleware(logger, openstackClient, k8sClient))
+	e.GET("/metrics", echo.WrapHandler(promhttp.HandlerFor(reg, promhttp.HandlerOpts{})))
 
 	doneCh := make(chan bool, 1)
 	go startHTTPServer(e, doneCh)
@@ -60,4 +74,19 @@ func startHTTPServer(e *echo.Echo, doneCh chan<- bool) {
 		e.Logger.Fatal("shutting down the server")
 	}
 	doneCh <- true
+}
+
+func determineLogLevel(level string) slog.Leveler {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
