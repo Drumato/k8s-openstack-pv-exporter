@@ -50,17 +50,23 @@ jobs:
             tag="${{ github.ref }}"
             tag=${tag/refs\/tags\//}
             echo "release_tag=$tag" >> $GITHUB_ENV
+          else
+            echo "release_tag=" >> $GITHUB_ENV
           fi
 
-
       - name: Build and push Docker Image to ghcr.io
+        id: build-push
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
           push: true
-          tags: |
-            ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.sha_tag }}
-            ${{ env.release_tag && 'ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.release_tag }}' || '' }}
+          tags: ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.sha_tag }}
           platforms: linux/amd64,linux/arm64
 
+
+      - name: Add release tag if available
+        if: env.release_tag != ''
+        run: |
+          docker tag ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.sha_tag }} ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.release_tag }}
+          docker push ghcr.io/drumato/k8s-openstack-pv-exporter:${{ env.release_tag }}
