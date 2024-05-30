@@ -18,28 +18,32 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      
+
       - name: Get dependencies
-        run: go get -v -t -d ./...
-      
+        run: go mod download
+
       - name: Build
         run: go build -v ./...
-      
+
       - name: Test
         run: go test -v ./...
 
-      - name: Build Docker Image
-        run: docker build . --file Dockerfile --tag ghcr.io/${{ github.repository_owner }}/k8s-openstack-pv-exporter:${{ github.sha }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
+          username: drumato
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push Docker Image to ghcr.io
-        run: docker push ghcr.io/${{ github.repository_owner }}/k8s-openstack-pv-exporter:${{ github.sha }}
+      - name: Build and push Docker Image to ghcr.io
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ghcr.io/drumato/k8s-openstack-pv-exporter:${{ github.sha }}
+          platforms: linux/amd64,linux/arm64
 
-      - name: Verify Published Image
-        run: docker pull ghcr.io/${{ github.repository_owner }}/k8s-openstack-pv-exporter:${{ github.sha }}
