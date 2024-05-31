@@ -82,15 +82,15 @@ func authenticate(
 
 	tlsConfig := &tls.Config{}
 	if ca != "" {
-		CA_Pool := x509.NewCertPool()
+		caPool := x509.NewCertPool()
 
 		severCert, err := os.ReadFile(ca)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
-		CA_Pool.AppendCertsFromPEM(severCert)
+		caPool.AppendCertsFromPEM(severCert)
 
-		tlsConfig.RootCAs = CA_Pool
+		tlsConfig.RootCAs = caPool
 	}
 
 	if cert != "" && key != "" {

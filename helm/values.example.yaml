@@ -1,0 +1,11 @@
+imagePullSecrets:
+  - ghcr-creds
+
+# Application specific
+exporter:
+  port: 8080
+  logLevel: info
+  auth:
+    secretName: "k8s-openstack-pv-exporter-auth"
+    useCertificate: true
+

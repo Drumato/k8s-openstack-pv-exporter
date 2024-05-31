@@ -25,6 +25,8 @@ You need to set the following environment variables:
 - `OS_REGION_NAME`
 - If `OS_CERT`, `OS_CACERT`, and `OS_KEY` are specified, the exporter will try to use them for authenticating with the OpenStack API.
 
+To install to a Kubernetes cluster, Please read [Helm Chart](#./helm/README.md) Documentation.
+
 ## Exposed Metric
 
 - `k8s_openstack_pv_exporter_openstack_volume_status` ... `GaugeVec`

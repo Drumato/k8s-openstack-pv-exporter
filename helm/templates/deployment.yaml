@@ -1,0 +1,140 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-openstack-pv-exporter.fullname" . }}
+  labels:
+    {{- include "k8s-openstack-pv-exporter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "k8s-openstack-pv-exporter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "k8s-openstack-pv-exporter.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "k8s-openstack-pv-exporter.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          command: 
+            - /exporter
+          args:
+            - "--port"
+            - "{{ .Values.exporter.port }}"
+            - "--log-level"
+            - "{{ .Values.exporter.logLevel }}"
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+            {{- if .Values.exporter.auth.useCertificate }}
+          volumeMounts:
+              - name: cert
+                mountPath: "/os.cert"
+                readOnly: true
+              - name: ca
+                mountPath: "/os.ca"
+                readOnly: true
+              - name: key 
+                mountPath: "/os.key"
+                readOnly: true
+            {{- end }}
+          env:
+            - name: OS_AUTH_URL
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.exporter.auth.secretName }}"
+                  key: auth_url
+            - name: OS_USERNAME 
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.exporter.auth.secretName }}"
+                  key: username 
+            - name: OS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.exporter.auth.secretName }}"
+                  key: password
+            - name: OS_DOMAIN_NAME 
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.exporter.auth.secretName }}"
+                  key: domain_name
+            - name: OS_TENANT_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.exporter.auth.secretName }}"
+                  key: tenant_name 
+            - name: OS_REGION_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: "{{ .Values.exporter.auth.secretName }}"
+                  key: region_name
+            {{- if .Values.exporter.auth.useCertificate }}
+            - name: OS_CERT
+              value: "/os.cert"
+            - name: OS_CACERT
+              value: "/os.ca"
+            - name: OS_KEY
+              value: "/os.key"
+            {{- end }}
+          {{- with .Values.exporter.env }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- if .Values.exporter.auth.useCertificate }}
+      volumes: 
+        - name: cert
+          secret:
+            secretName: "{{ .Values.exporter.auth.secretName }}"
+            items:
+            - key: certificate
+              path: "/os.cert"
+        - name: ca
+          secret:
+            secretName: "{{ .Values.exporter.auth.secretName }}"
+            items:
+              - key: ca 
+              path: "/os.ca"
+        - name: key 
+          secret:
+            secretName: "{{ .Values.exporter.auth.secretName }}"
+            items:
+            - key: key
+              path: "/os.key"
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
